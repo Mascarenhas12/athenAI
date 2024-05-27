@@ -5,4 +5,5 @@ repositories:
 releases:
 - name: argo
   namespace: argocd
-  chart: argo/argocd
+  chart: argo/argo-cd
+  version: 6.11.1

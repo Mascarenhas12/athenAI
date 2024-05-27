@@ -3,15 +3,14 @@ version: '3'
 tasks:
   cluster-up-kind:
     internal: true
-    dir: '{{.USER_WORKING_DIR}}/infrastructure/{{CLUSTER}}/'
+    dir: '{{.USER_WORKING_DIR}}/infrastructure/dev/'
     summary: |
       Bootstraps kind cluster
     cmds:
       - kind create cluster
 
   cluster-up-capi:
-    deps: [cluster-up-kind]
-    dir: '{{.USER_WORKING_DIR}}/infrastructure/{{CLUSTER}}/'
+    dir: '{{.USER_WORKING_DIR}}/infrastructure/dev/'
     internal: true
     summary: |
       Bootstraps capi providers for talos linux and vcluster in management cluster
@@ -19,8 +18,7 @@ tasks:
       - clusterctl init --bootstrap talos --control-plane talos --infrastructure vcluster
 
   cluster-up-helm:
-    deps: [cluster-up-kind]
-    dir: '{{.USER_WORKING_DIR}}/infrastructure/{{CLUSTER}}/'
+    dir: '{{.USER_WORKING_DIR}}/infrastructure/dev/'
     internal: true
     summary: |
       Bootstraps base helm applications for management cluster
@@ -33,8 +31,8 @@ tasks:
 
 
   cluster-up:
-    deps: [cluster-up-capi, cluster-up-helm]
-    dir: '{{.USER_WORKING_DIR}}/infrastructure/{{CLUSTER}}/'
+    deps: [cluster-up-kind]
+    dir: '{{.USER_WORKING_DIR}}/infrastructure/dev/'
     summary: |
       Verifies that cluster specification exists and initial applications to bootstrap
       Spins up kind cluster from it
@@ -42,8 +40,17 @@ tasks:
       - file cluster.yaml
       - file helmfile.yaml
       - kind --version
-      - kubectl version --shorts
       - helmfile init
       - clusterctl version
     cmds:
+      - task: cluster-up-capi
+      - task: cluster-up-helm
+      - kubectl create namespace vcluster
       - kubectl apply -f cluster.yaml
+
+  cluster-down:
+    dir: '{{.USER_WORKING_DIR}}/infrastructure/dev/'
+    summary: |
+      Destroys kind cluster
+    cmds:
+      - kind delete cluster
