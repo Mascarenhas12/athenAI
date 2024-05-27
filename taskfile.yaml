@@ -1,0 +1,49 @@
+version: '3'
+
+tasks:
+  cluster-up-kind:
+    internal: true
+    dir: '{{.USER_WORKING_DIR}}/infrastructure/{{CLUSTER}}/'
+    summary: |
+      Bootstraps kind cluster
+    cmds:
+      - kind create cluster
+
+  cluster-up-capi:
+    deps: [cluster-up-kind]
+    dir: '{{.USER_WORKING_DIR}}/infrastructure/{{CLUSTER}}/'
+    internal: true
+    summary: |
+      Bootstraps capi providers for talos linux and vcluster in management cluster
+    cmds:
+      - clusterctl init --bootstrap talos --control-plane talos --infrastructure vcluster
+
+  cluster-up-helm:
+    deps: [cluster-up-kind]
+    dir: '{{.USER_WORKING_DIR}}/infrastructure/{{CLUSTER}}/'
+    internal: true
+    summary: |
+      Bootstraps base helm applications for management cluster
+      - ArgoCD
+      - Sveltos
+      - Kyverno
+      - etc
+    cmds:
+      - helmfile apply
+
+
+  cluster-up:
+    deps: [cluster-up-capi, cluster-up-helm]
+    dir: '{{.USER_WORKING_DIR}}/infrastructure/{{CLUSTER}}/'
+    summary: |
+      Verifies that cluster specification exists and initial applications to bootstrap
+      Spins up kind cluster from it
+    preconditions:
+      - file cluster.yaml
+      - file helmfile.yaml
+      - kind --version
+      - kubectl version --shorts
+      - helmfile init
+      - clusterctl version
+    cmds:
+      - kubectl apply -f cluster.yaml
