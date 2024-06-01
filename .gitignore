@@ -4,3 +4,4 @@
 credentials*
 *tar.gz
 .terraform*
+*tfstate*

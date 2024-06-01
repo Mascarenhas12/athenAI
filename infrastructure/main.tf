@@ -1,6 +1,9 @@
+// Random tag
+resource "random_uuid" "tag" {}
+
 // Create Storage bucket for image tars
 resource "google_storage_bucket" "image_bucket" {
- name          = "vm-images"
+ name          = "vm-images-${random_uuid.tag.result}"
  location      = "EU"
  storage_class = "STANDARD"
  force_destroy = true
@@ -38,7 +41,7 @@ resource "google_compute_image" "talos_image" {
   name = "talos-linux-amd64"
 
   raw_disk {
-    source = "${google_storage_bucket.image_bucket.url}/${google_storage_bucket_object.talos_tar.name}"
+    source = "${google_storage_bucket.image_bucket.name}/${google_storage_bucket_object.talos_tar.name}"
   }
 
   guest_os_features {
