@@ -1,25 +1,33 @@
 version: '3'
 
 tasks:
-  cluster-up-kind:
-    internal: true
-    dir: '{{.USER_WORKING_DIR}}/infrastructure/dev/'
+  tf-up:
+    summary: |
+      Bootstraps tf resources in GCP on saved plan
+    cmds:
+      - terraform validate
+      - terraform plan -out=plan.txt
+      - terraform apply -auto-approve
+
+  tf-destroy:
+    summary: |
+      Tear down tf resources in GCP
+    cmds:
+      - terraform destroy -auto-approve
+
+  kind-up:
     summary: |
       Bootstraps kind cluster
     cmds:
       - kind create cluster
 
-  cluster-up-capi:
-    dir: '{{.USER_WORKING_DIR}}/infrastructure/dev/'
-    internal: true
+  capi-up:
     summary: |
       Bootstraps capi providers for talos linux and vcluster in management cluster
     cmds:
       - clusterctl init --bootstrap talos --control-plane talos --infrastructure vcluster
 
-  cluster-up-helm:
-    dir: '{{.USER_WORKING_DIR}}/infrastructure/dev/'
-    internal: true
+  helm-up:
     summary: |
       Bootstraps base helm applications for management cluster
       - ArgoCD
@@ -30,8 +38,8 @@ tasks:
       - helmfile apply
 
 
-  cluster-up:
-    deps: [cluster-up-kind]
+  mgmt-up:
+    deps: [kind-up]
     dir: '{{.USER_WORKING_DIR}}/infrastructure/dev/'
     summary: |
       Verifies that cluster specification exists and initial applications to bootstrap
@@ -43,14 +51,16 @@ tasks:
       - helmfile init
       - clusterctl version
     cmds:
-      - task: cluster-up-capi
-      - task: cluster-up-helm
+      - task: capi-up
+      - task: helm-up
       - kubectl create namespace vcluster
       - kubectl apply -f cluster.yaml
 
-  cluster-down:
+  mgmt-down:
     dir: '{{.USER_WORKING_DIR}}/infrastructure/dev/'
     summary: |
-      Destroys kind cluster
+      Destroys kind cluster deleting resources in orders
     cmds:
-      - kind delete cluster
+      - kubectl delete -f cluster.yaml
+      - kubectl delete namespace vcluster
+      - kind destroy cluster
