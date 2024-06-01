@@ -21,6 +21,12 @@ tasks:
     cmds:
       - kind create cluster
 
+  kind-down:
+    summary: |
+      Destroys kind cluster
+    cmds:
+      - kind delete cluster
+
   capi-up:
     summary: |
       Bootstraps capi providers for talos linux and vcluster in management cluster
@@ -40,7 +46,7 @@ tasks:
 
   mgmt-up:
     deps: [kind-up]
-    dir: '{{.USER_WORKING_DIR}}/infrastructure/dev/'
+    dir: '{{.USER_WORKING_DIR}}/infrastructure/'
     summary: |
       Verifies that cluster specification exists and initial applications to bootstrap
       Spins up kind cluster from it
@@ -57,10 +63,10 @@ tasks:
       - kubectl apply -f cluster.yaml
 
   mgmt-down:
-    dir: '{{.USER_WORKING_DIR}}/infrastructure/dev/'
+    dir: '{{.USER_WORKING_DIR}}/infrastructure/'
     summary: |
       Destroys kind cluster deleting resources in orders
     cmds:
       - kubectl delete -f cluster.yaml
       - kubectl delete namespace vcluster
-      - kind destroy cluster
+      - task: kind-downs
