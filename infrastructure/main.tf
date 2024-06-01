@@ -31,7 +31,7 @@ resource "google_storage_bucket" "image_bucket" {
 
 //Upload Talos GCP linux tar
 resource "google_storage_bucket_object" "talos_tar" {
- name         = "talos-linux-gcp-amd64"
+ name         = "talos-linux-gcp-amd64.tar.gz"
  source       = "gcp-amd64.raw.tar.gz"
  bucket       = google_storage_bucket.image_bucket.id
 }
@@ -41,9 +41,8 @@ resource "google_compute_image" "talos_image" {
   name = "talos-linux-amd64"
 
   raw_disk {
-    source = "${google_storage_bucket.image_bucket.name}/${google_storage_bucket_object.talos_tar.name}"
+    source = "${google_storage_bucket_object.talos_tar.self_link}"
   }
-
   guest_os_features {
     type = "VIRTIO_SCSI_MULTIQUEUE"
   }
@@ -66,6 +65,7 @@ resource "google_compute_health_check" "talos-vms-health-check" {
   name = "tcp-health-check"
 
   timeout_sec        = 300 // 5 minutes
+  check_interval_sec = 300 // 10 minutes
 
   tcp_health_check {
     port = "6443"
@@ -76,6 +76,7 @@ resource "google_compute_health_check" "talos-vms-health-check" {
 resource "google_compute_backend_service" "backend" {
   name          = "talos-backend-service"
   health_checks = [google_compute_health_check.talos-vms-health-check.id]
+  protocol = "TCP"
   backend {
     group = google_compute_instance_group.talos_vms.id
   }
@@ -106,7 +107,7 @@ resource "google_compute_global_forwarding_rule" "lb_public" {
 // Create firewall rules
 // FW Health checks
 resource "google_compute_firewall" "fw_health_rule" {
-  project     = local.project_name
+  project     = local.project_id
   name        = "fw-health"
   network     = "default"
 
@@ -122,7 +123,7 @@ resource "google_compute_firewall" "fw_health_rule" {
 
 // FW Talosctl
 resource "google_compute_firewall" "fw_talosctl_rule" {
-  project     = local.project_name
+  project     = local.project_id
   name        = "fw-talosctl"
   network     = "default"
 
