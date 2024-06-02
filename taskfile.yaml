@@ -6,8 +6,8 @@ tasks:
       Bootstraps tf resources in GCP on saved plan
     cmds:
       - terraform validate
-      - terraform plan -out=plan.txt
-      - terraform apply -auto-approve
+      - terraform plan -out=resources
+      - terraform apply -auto-approve "resources"
 
   tf-destroy:
     summary: |
@@ -30,8 +30,15 @@ tasks:
   capi-up:
     summary: |
       Bootstraps capi providers for talos linux and vcluster in management cluster
+    dotenv: [".env"]
+    preconditions:
+      - file credentials.json
     cmds:
-      - clusterctl init --bootstrap talos --control-plane talos --infrastructure vcluster
+      - export {{.GCP_B64ENCODED_CREDENTIALS}}
+      - clusterctl init --bootstrap talos --control-plane talos --infrastructure gcp
+    vars:
+      GCP_B64ENCODED_CREDENTIALS:
+        sh: cat credentials.json | base64 | tr -d '\n'
 
   helm-up:
     summary: |
@@ -43,6 +50,11 @@ tasks:
     cmds:
       - helmfile apply
 
+  cluster-class-up:
+    summary: |
+      Bootstraps base CAPI cluster classes based cluster size for Talos in GCP
+    cmds:
+      - kubectl apply -f cluster-classes/gpc*.yaml
 
   mgmt-up:
     deps: [kind-up]
@@ -59,7 +71,8 @@ tasks:
     cmds:
       - task: capi-up
       - task: helm-up
-      - kubectl create namespace vcluster
+      - kubectl create namespace gcp-cluster
+      - task: cluster-class-up
       - kubectl apply -f cluster.yaml
 
   mgmt-down:
@@ -68,5 +81,5 @@ tasks:
       Destroys kind cluster deleting resources in orders
     cmds:
       - kubectl delete -f cluster.yaml
-      - kubectl delete namespace vcluster
-      - task: kind-downs
+      - kubectl delete namespace gcp-cluster
+      - task: kind-down
