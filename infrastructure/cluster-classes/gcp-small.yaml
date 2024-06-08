@@ -1,0 +1,154 @@
+---
+kind: ClusterClass
+apiVersion: cluster.x-k8s.io/v1beta1
+metadata:
+  name: docker-clusterclass-v0.1.0
+spec:
+  controlPlane:
+    ref:
+      apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+      kind: TalosControlPlane
+      name: docker-clusterclass-v0.1.0
+      namespace: default
+  workers:
+    machinePools:
+    - class: default-worker
+      template:
+        bootstrap:
+          ref:
+            apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+            kind: TalosConfigTemplate
+            name: docker-clusterclass-v0.1.0-workers
+        infrastructure:
+          ref:
+            apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+            kind: DockerMachinePoolTemplate
+            name: quick-start-default-worker-machinepooltemplate
+
+
+
+
+# Configs
+# Control Plane
+---
+kind: TalosControlPlane
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+metadata:
+  name: docker-clusterclass-v0.1.0-controlplane
+spec:
+  version: v1.30.0
+  replicas: 3
+  infrastructureTemplate:
+    kind: GCPMachineTemplate
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    name: docker-clusterclass-v0.1.0-control-plane
+  controlPlaneConfig:
+    controlplane:
+      generateType: controlplane
+      talosVersion: v1.7
+
+# Worker  
+---
+kind: TalosConfigTemplate
+apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+metadata:
+  name: docker-clusterclass-v0.1.0-workers
+spec:
+  template:
+    spec:
+      generateType: join
+      talosVersion: v1.7
+
+# Machine Templates for the VMs created
+# Control Plane
+---
+kind: GCPMachineTemplate
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+metadata:
+  name: docker-clusterclass-v0.1.0-control-plane
+spec:
+  template:
+    spec:
+      instanceType: e2-standard-2
+      image: projects/athenai-425112/global/images/talos-linux-amd64
+      publicIP: true
+      rootDeviceSize: 50
+      serviceAccounts:
+        email: capi-clusters@athenai-425112.iam.gserviceaccount.com
+        scopes:
+          - "https://www.googleapis.com/auth/compute"
+
+# Workers
+---
+kind: GCPMachineTemplate
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+metadata:
+  name: docker-clusterclass-v0.1.0-workers
+spec:
+  template:
+    spec:
+      instanceType: e2-standard-4
+      image: projects/athenai-425112/global/images/talos-linux-amd64
+      serviceAccounts:
+        email: capi-clusters@athenai-425112.iam.gserviceaccount.com
+        scopes:
+          - "https://www.googleapis.com/auth/compute"
+      publicIP: true
+      rootDeviceSize: 50
+
+# Machine Pool
+---
+kind: MachinePool
+apiVersion: cluster.x-k8s.io/v1beta1
+metadata:
+  labels:
+    cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+    nodepool: nodepool-a
+  name: ${CLUSTER_NAME}-workers
+spec:
+  clusterName: ${CLUSTER_NAME}
+  replicas: ${WORKER_MACHINE_COUNT}
+  selector:
+    matchLabels:
+      cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+      nodepool: nodepool-a
+  template:
+    metadata:
+      labels:
+        cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}
+        nodepool: nodepool-a
+    spec:
+      clusterName: ${CLUSTER_NAME}
+      failureDomain: ${GCP_REGION}-a
+      version: ${KUBERNETES_VERSION}
+      bootstrap:
+        configRef:
+          name: ${CLUSTER_NAME}-workers
+          apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+          kind: TalosConfigTemplate
+      infrastructureRef:
+        name: ${CLUSTER_NAME}-workers
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: GCPMachineTemplate
+
+# Healthchecks
+## Workers
+---
+kind: MachineHealthCheck
+apiVersion: cluster.x-k8s.io/v1alpha4
+metadata:
+  name: ${CLUSTER_NAME}-worker-hc
+spec:
+  clusterName: ${CLUSTER_NAME}
+  maxUnhealthy: 40%
+  nodeStartupTimeout: 20m
+  selector:
+    matchLabels:
+      nodepool: nodepool-a
+  unhealthyConditions:
+    - type: Ready
+      status: Unknown
+      timeout: 300s
+    - type: Ready
+      status: "False"
+      timeout: 300s
